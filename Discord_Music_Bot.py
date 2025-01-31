@@ -26,6 +26,36 @@ async def on_ready():
     await bot.tree.sync()  # Syncs all slash commands
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
+# 🎛 Buttons for Music Controls
+class MusicControls(discord.ui.View):
+    def __init__(self, vc):
+        super().__init__()
+        self.vc = vc
+
+    @discord.ui.button(label="▶️ Play", style=discord.ButtonStyle.green)
+    async def play_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.vc and self.vc.is_paused():
+            self.vc.resume()
+            await interaction.response.send_message("▶️ Resuming music!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ No paused music to resume.", ephemeral=True)
+
+    @discord.ui.button(label="⏸ Pause", style=discord.ButtonStyle.gray)
+    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.vc and self.vc.is_playing():
+            self.vc.pause()
+            await interaction.response.send_message("⏸ Music paused!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ No music playing to pause.", ephemeral=True)
+
+    @discord.ui.button(label="⏹ Stop", style=discord.ButtonStyle.red)
+    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.vc and self.vc.is_playing():
+            self.vc.stop()
+            await interaction.response.send_message("⏹ Music stopped!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ No music playing to stop.", ephemeral=True)
+
 # 🎵 Slash Command: Play Music
 @bot.tree.command(name="play", description="Plays a track from a SoundCloud URL")
 async def play(interaction: discord.Interaction, url: str):
@@ -57,15 +87,11 @@ async def play(interaction: discord.Interaction, url: str):
             print(f"Error: {e}")
             return
 
-    # **Test if FFmpeg can play the extracted audio URL in the console**
-    print(f"🛠 Testing FFmpeg with: {audio_url}")
-    os.system(f'ffmpeg -i "{audio_url}" -f null -')
-
     # Play audio using FFmpeg
     try:
         vc.play(discord.FFmpegPCMAudio(audio_url, **ffmpeg_options),
                 after=lambda e: print(f"Player error: {e}") if e else None)
-        await interaction.response.send_message(f"🎶 Now playing: {info['title']}", view=MusicControls())
+        await interaction.response.send_message(f"🎶 Now playing: {info['title']}", view=MusicControls(vc))
 
         # **Wait for song to finish before disconnecting**
         while vc.is_playing():
@@ -84,42 +110,6 @@ async def disconnect(interaction: discord.Interaction):
         await interaction.response.send_message("👋 Disconnected from voice channel.")
     else:
         await interaction.response.send_message("❌ The bot is not in a voice channel.", ephemeral=True)
-
-# 🎛 Buttons for Music Controls
-class MusicControls(discord.ui.View):
-    def __init__(self):
-        super().__init__()
-
-    @discord.ui.button(label="▶️ Play", style=discord.ButtonStyle.green)
-    async def play_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("▶️ Resuming music!")
-
-    @discord.ui.button(label="⏸ Pause", style=discord.ButtonStyle.gray)
-    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("⏸ Music paused!")
-
-    @discord.ui.button(label="⏹ Stop", style=discord.ButtonStyle.red)
-    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("⏹ Music stopped!")
-
-# 🎚 Dropdown for Audio Filters
-class AudioFilters(discord.ui.View):
-    @discord.ui.select(
-        placeholder="🎛 Choose an Audio Effect",
-        options=[
-            discord.SelectOption(label="8D Audio", value="8d", emoji="🎧"),
-            discord.SelectOption(label="Bass Boost", value="bassboost", emoji="🔊"),
-            discord.SelectOption(label="Clear Filters", value="clear", emoji="🚫"),
-        ]
-    )
-    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
-        filter_choice = select.values[0]
-        if filter_choice == "8d":
-            await interaction.response.send_message("🎧 8D Audio enabled!")
-        elif filter_choice == "bassboost":
-            await interaction.response.send_message("🔊 Bass Boost enabled!")
-        elif filter_choice == "clear":
-            await interaction.response.send_message("🚫 Audio filters cleared!")
 
 # 🔑 Run Bot
 token = os.getenv('DISCORD_BOT_TOKEN')
