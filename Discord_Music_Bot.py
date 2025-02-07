@@ -10,23 +10,22 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
 intents.voice_states = True
-intents.message_content = True  # Enables message reading
+intents.message_content = True  
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# **FFmpeg options** (adds SoundCloud "Referer" header)
+# ✅ Keep SoundCloud FFmpeg settings unchanged
 ffmpeg_options = {
     'options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'before_options': '-headers "Referer: https://soundcloud.com" -protocol_whitelist file,http,https,tcp,tls,crypto'
 }
 
-# ✅ Bot Ready Event
 @bot.event
 async def on_ready():
-    await bot.tree.sync()  # Syncs all slash commands
+    await bot.tree.sync()  
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
-# 🎛 Buttons for Music Controls
+# 🎛 Music Control Buttons
 class MusicControls(discord.ui.View):
     def __init__(self, vc):
         super().__init__()
@@ -56,49 +55,51 @@ class MusicControls(discord.ui.View):
         else:
             await interaction.response.send_message("❌ No music playing to stop.", ephemeral=True)
 
-# 🎵 Slash Command: Play Music
-@bot.tree.command(name="play", description="Plays a track from a SoundCloud URL")
+# 🎵 Slash Command: Play Music (SoundCloud & YouTube)
+@bot.tree.command(name="play", description="Plays a track from SoundCloud or YouTube")
 async def play(interaction: discord.Interaction, url: str):
-    if 'soundcloud.com' not in url:
-        await interaction.response.send_message("❌ Please provide a valid SoundCloud URL.", ephemeral=True)
-        return
+    await interaction.response.defer()
 
-    # Ensure user is in a voice channel
     if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("❌ You need to be in a voice channel to play music!", ephemeral=True)
+        await interaction.followup.send("❌ You need to be in a voice channel to play music!", ephemeral=True)
         return
 
     voice_channel = interaction.user.voice.channel
-
-    # Check if bot is already connected
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if not vc or not vc.is_connected():
         vc = await voice_channel.connect()
 
-    # Extract direct audio URL from SoundCloud
-    ydl_opts = {'format': 'http_mp3_0_0'}
+    # ✅ Keep SoundCloud settings unchanged
+    if "soundcloud.com" in url:
+        ydl_opts = {'format': 'http_mp3_0_0'}  # Keeps your SoundCloud format unchanged
+    # ✅ Add YouTube support
+    elif "youtube.com" in url or "youtu.be" in url:
+        ydl_opts = {'format': 'bestaudio/best', 'noplaylist': True}
+    else:
+        await interaction.followup.send("❌ Please provide a valid YouTube or SoundCloud URL.", ephemeral=True)
+        return
+
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
             audio_url = info['url']
+            title = info.get("title", "Unknown Title")
             print(f"🔊 Extracted Audio URL: {audio_url}")
         except Exception as e:
-            await interaction.response.send_message("❌ Error extracting audio from SoundCloud.")
+            await interaction.followup.send(f"❌ Error extracting audio: {e}")
             print(f"Error: {e}")
             return
 
-    # Play audio using FFmpeg
     try:
         vc.play(discord.FFmpegPCMAudio(audio_url, **ffmpeg_options),
                 after=lambda e: print(f"Player error: {e}") if e else None)
-        await interaction.response.send_message(f"🎶 Now playing: {info['title']}", view=MusicControls(vc))
+        await interaction.followup.send(f"🎶 Now playing: {title}", view=MusicControls(vc))
 
-        # **Wait for song to finish before disconnecting**
-        while vc.is_playing():
+        while vc.is_playing() or vc.is_paused():
             await asyncio.sleep(2)
 
     except Exception as e:
-        await interaction.response.send_message(f"❌ Error playing audio: {e}")
+        await interaction.followup.send(f"❌ Error playing audio: {e}")
         print(f"❌ FFmpeg Error: {e}")
 
 # 🔌 Slash Command: Disconnect
