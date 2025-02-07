@@ -2,26 +2,21 @@ import os
 import discord
 import asyncio
 import yt_dlp as youtube_dl
-import threading
-from discord import app_commands
 from discord.ext import commands
 from flask import Flask
-from dotenv import load_dotenv
+import threading
 
-# Load environment variables from .env (for local development)
-load_dotenv()
-
-# Flask app to keep the bot alive on Google Cloud Run
+# ------------------------- Flask Web Server ------------------------- #
 app = Flask(__name__)
 
-@app.route("/")
+@app.route('/')
 def home():
-    return "Discord Music Bot is running!"
+    return "✅ Discord Music Bot is Running on Google Cloud Run!"
 
 def run_flask():
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
 
-# Set up bot with intents
+# ------------------------ Discord Bot Setup ------------------------- #
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
@@ -30,19 +25,18 @@ intents.message_content = True  # Enables message reading
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# **FFmpeg options**
+# FFmpeg Options
 ffmpeg_options = {
     'options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'before_options': '-headers "Referer: https://soundcloud.com" -protocol_whitelist file,http,https,tcp,tls,crypto'
 }
 
-# ✅ Bot Ready Event
+# ------------------------- Bot Ready Event ------------------------- #
 @bot.event
 async def on_ready():
-    await bot.tree.sync()  # Syncs all slash commands
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
-# 🎛 Buttons for Music Controls
+# ------------------------- Music Controls UI ------------------------- #
 class MusicControls(discord.ui.View):
     def __init__(self, vc):
         super().__init__()
@@ -72,9 +66,13 @@ class MusicControls(discord.ui.View):
         else:
             await interaction.response.send_message("❌ No music playing to stop.", ephemeral=True)
 
-# 🎵 Slash Command: Play Music (Supports SoundCloud & YouTube)
-@bot.tree.command(name="play", description="Plays a track from YouTube or SoundCloud")
+# ------------------------- Play Music Command ------------------------- #
+@bot.tree.command(name="play", description="Plays a track from a SoundCloud or YouTube URL")
 async def play(interaction: discord.Interaction, url: str):
+    if 'soundcloud.com' not in url and 'youtube.com' not in url and 'youtu.be' not in url:
+        await interaction.response.send_message("❌ Please provide a valid SoundCloud or YouTube URL.", ephemeral=True)
+        return
+
     # Ensure user is in a voice channel
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("❌ You need to be in a voice channel to play music!", ephemeral=True)
@@ -87,7 +85,7 @@ async def play(interaction: discord.Interaction, url: str):
     if not vc or not vc.is_connected():
         vc = await voice_channel.connect()
 
-    # Extract direct audio URL from YouTube or SoundCloud
+    # Extract direct audio URL
     ydl_opts = {'format': 'bestaudio'}
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -95,7 +93,7 @@ async def play(interaction: discord.Interaction, url: str):
             audio_url = info['url']
             print(f"🔊 Extracted Audio URL: {audio_url}")
         except Exception as e:
-            await interaction.response.send_message("❌ Error extracting audio from the provided link.")
+            await interaction.response.send_message("❌ Error extracting audio.")
             print(f"Error: {e}")
             return
 
@@ -105,7 +103,7 @@ async def play(interaction: discord.Interaction, url: str):
                 after=lambda e: print(f"Player error: {e}") if e else None)
         await interaction.response.send_message(f"🎶 Now playing: {info['title']}", view=MusicControls(vc))
 
-        # **Wait for song to finish before disconnecting**
+        # Wait for song to finish before disconnecting
         while vc.is_playing():
             await asyncio.sleep(2)
 
@@ -113,7 +111,7 @@ async def play(interaction: discord.Interaction, url: str):
         await interaction.response.send_message(f"❌ Error playing audio: {e}")
         print(f"❌ FFmpeg Error: {e}")
 
-# 🔌 Slash Command: Disconnect
+# ------------------------- Disconnect Command ------------------------- #
 @bot.tree.command(name="disconnect", description="Disconnects the bot from the voice channel")
 async def disconnect(interaction: discord.Interaction):
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
@@ -123,11 +121,10 @@ async def disconnect(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ The bot is not in a voice channel.", ephemeral=True)
 
-# 🔑 Run Bot (Uses Environment Variable)
-token = os.getenv("DISCORD_BOT_TOKEN")
+# ------------------------- Run Flask and Discord Bot ------------------------- #
+if __name__ == "__main__":
+    # Start Flask in a separate thread to keep Cloud Run alive
+    threading.Thread(target=run_flask, daemon=True).start()
 
-if token:
-    threading.Thread(target=run_flask).start()
-    asyncio.run(bot.start(token))
-else:
-    print("❌ Token not found. Please set the DISCORD_BOT_TOKEN environment variable.")
+    # Run Discord bot
+    bot.run(os.getenv("DISCORD_BOT_TOKEN"))
