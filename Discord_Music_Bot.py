@@ -5,7 +5,7 @@ import yt_dlp as youtube_dl
 from discord import app_commands
 from discord.ext import commands
 
-# Set up bot with intents
+
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
@@ -14,7 +14,7 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ✅ Keep SoundCloud FFmpeg settings unchanged
+
 ffmpeg_options = {
     'options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'before_options': '-headers "Referer: https://soundcloud.com" -protocol_whitelist file,http,https,tcp,tls,crypto'
@@ -25,7 +25,7 @@ async def on_ready():
     await bot.tree.sync()  
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
-# 🎛 Music Control Buttons
+#  Music Control Buttons
 class MusicControls(discord.ui.View):
     def __init__(self, vc):
         super().__init__()
@@ -69,10 +69,10 @@ async def play(interaction: discord.Interaction, url: str):
     if not vc or not vc.is_connected():
         vc = await voice_channel.connect()
 
-    # ✅ Keep SoundCloud settings unchanged
+    
     if "soundcloud.com" in url:
-        ydl_opts = {'format': 'http_mp3_0_0'}  # Keeps your SoundCloud format unchanged
-    # ✅ Add YouTube support
+        ydl_opts = {'format': 'http_mp3_0_0'}  
+    
     elif "youtube.com" in url or "youtu.be" in url:
         ydl_opts = {'format': 'bestaudio/best', 'noplaylist': True}
     else:
@@ -112,7 +112,7 @@ async def disconnect(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ The bot is not in a voice channel.", ephemeral=True)
 
-# 🔑 Run Bot
+#  Run Bot
 token = os.getenv('DISCORD_BOT_TOKEN')
 if token:
     bot.run(token)
