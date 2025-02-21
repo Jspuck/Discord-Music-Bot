@@ -1,7 +1,13 @@
 Flask==2.2.2
+<<<<<<< HEAD
 Werkzeug==2.3.7
 discord.py==2.3.2
 yt-dlp==2023.03.04
 gunicorn
 ffmpeg
 PyNaCl
+=======
+discord.py==2.3.2
+yt-dlp==2023.03.04
+ffmpeg
+>>>>>>> 17f9d46a4303ebfe407a77f6593108cae4b15ca7

@@ -14,8 +14,12 @@ def home():
     return "✅ Discord Music Bot is Running on Google Cloud Run!"
 
 def run_flask():
+<<<<<<< HEAD
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), use_reloader=False)
 
+=======
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+>>>>>>> 17f9d46a4303ebfe407a77f6593108cae4b15ca7
 
 # ------------------------ Discord Bot Setup ------------------------- #
 intents = discord.Intents.default()
@@ -37,6 +41,7 @@ ffmpeg_options = {
 async def on_ready():
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
+<<<<<<< HEAD
     # 🔄 Sync commands globally for all servers
     try:
         await bot.tree.sync()
@@ -44,6 +49,8 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Error syncing commands: {e}")
 
+=======
+>>>>>>> 17f9d46a4303ebfe407a77f6593108cae4b15ca7
 # ------------------------- Music Controls UI ------------------------- #
 class MusicControls(discord.ui.View):
     def __init__(self, vc):
