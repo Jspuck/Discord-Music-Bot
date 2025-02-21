@@ -36,22 +36,56 @@ ffmpeg_options = {
 async def on_ready():
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
+    # Sync slash commands
+    await bot.tree.sync()
+    print("✅ Slash commands synced!")
+
+# ------------------------- Music Controls UI ------------------------- #
+class MusicControls(discord.ui.View):
+    def __init__(self, vc):
+        super().__init__()
+        self.vc = vc
+
+    @discord.ui.button(label="▶️ Play", style=discord.ButtonStyle.green)
+    async def play_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.vc and self.vc.is_paused():
+            self.vc.resume()
+            await interaction.response.send_message("▶️ Resuming music!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ No paused music to resume.", ephemeral=True)
+
+    @discord.ui.button(label="⏸ Pause", style=discord.ButtonStyle.gray)
+    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.vc and self.vc.is_playing():
+            self.vc.pause()
+            await interaction.response.send_message("⏸ Music paused!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ No music playing to pause.", ephemeral=True)
+
+    @discord.ui.button(label="⏹ Stop", style=discord.ButtonStyle.red)
+    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.vc and self.vc.is_playing():
+            self.vc.stop()
+            await interaction.response.send_message("⏹ Music stopped!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ No music playing to stop.", ephemeral=True)
+
 # ------------------------- Play Music Command ------------------------- #
-@bot.command(name="play", help="Plays a track from YouTube or SoundCloud URL")
-async def play(ctx, url: str):
-    if not url.startswith(("https://www.youtube.com", "https://youtu.be", "https://soundcloud.com")):
-        await ctx.send("❌ Please provide a valid SoundCloud or YouTube URL.")
+@bot.tree.command(name="play", description="Plays a track from a SoundCloud or YouTube URL")
+async def play(interaction: discord.Interaction, url: str):
+    if 'soundcloud.com' not in url and 'youtube.com' not in url and 'youtu.be' not in url:
+        await interaction.response.send_message("❌ Please provide a valid SoundCloud or YouTube URL.", ephemeral=True)
         return
 
     # Ensure user is in a voice channel
-    if not ctx.author.voice or not ctx.author.voice.channel:
-        await ctx.send("❌ You need to be in a voice channel to play music!")
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("❌ You need to be in a voice channel to play music!", ephemeral=True)
         return
 
-    voice_channel = ctx.author.voice.channel
+    voice_channel = interaction.user.voice.channel
 
     # Check if bot is already connected
-    vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if not vc or not vc.is_connected():
         vc = await voice_channel.connect()
 
@@ -63,32 +97,33 @@ async def play(ctx, url: str):
             audio_url = info['url']
             print(f"🔊 Extracted Audio URL: {audio_url}")
         except Exception as e:
-            await ctx.send("❌ Error extracting audio.")
+            await interaction.response.send_message("❌ Error extracting audio.")
             print(f"Error: {e}")
             return
 
     # Play audio using FFmpeg
     try:
-        vc.play(discord.FFmpegPCMAudio(audio_url, **ffmpeg_options))
-        await ctx.send(f"🎶 Now playing: {info['title']}")
+        vc.play(discord.FFmpegPCMAudio(audio_url, **ffmpeg_options),
+                after=lambda e: print(f"Player error: {e}") if e else None)
+        await interaction.response.send_message(f"🎶 Now playing: {info['title']}", view=MusicControls(vc))
 
         # Wait for song to finish before disconnecting
         while vc.is_playing():
             await asyncio.sleep(2)
 
     except Exception as e:
-        await ctx.send(f"❌ Error playing audio: {e}")
+        await interaction.response.send_message(f"❌ Error playing audio: {e}")
         print(f"❌ FFmpeg Error: {e}")
 
 # ------------------------- Disconnect Command ------------------------- #
-@bot.command(name="disconnect", help="Disconnects the bot from the voice channel")
-async def disconnect(ctx):
-    vc = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+@bot.tree.command(name="disconnect", description="Disconnects the bot from the voice channel")
+async def disconnect(interaction: discord.Interaction):
+    vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if vc and vc.is_connected():
         await vc.disconnect()
-        await ctx.send("👋 Disconnected from voice channel.")
+        await interaction.response.send_message("👋 Disconnected from voice channel.")
     else:
-        await ctx.send("❌ The bot is not in a voice channel.")
+        await interaction.response.send_message("❌ The bot is not in a voice channel.", ephemeral=True)
 
 # ------------------------- Run Flask and Discord Bot ------------------------- #
 if __name__ == "__main__":
