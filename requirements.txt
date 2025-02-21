@@ -1,4 +1,6 @@
 Flask==2.2.2
+Werkzeug==2.3.7
 discord.py==2.3.2
 yt-dlp==2023.03.04
 ffmpeg
+gunicorn
