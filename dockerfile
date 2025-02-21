@@ -1,23 +1,18 @@
-# Use an official lightweight Python image
+# Use Python 3.11 Slim as base image
 FROM python:3.11-slim
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy only requirements first for efficient caching
+# Copy required files
 COPY requirements.txt .
+COPY . .
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application files
-COPY . .
-
-# Expose port 8080 for Flask (Google Cloud Run requirement)
+# Expose the port for Flask
 EXPOSE 8080
 
-# Define environment variables
-ENV PORT=8080
-
-# Start both Flask and Discord bot using Gunicorn
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "main:app"]
+# Command to run the bot
+CMD ["python", "main.py"]

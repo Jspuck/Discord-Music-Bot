@@ -14,7 +14,7 @@ def home():
     return "✅ Discord Music Bot is Running on Google Cloud Run!"
 
 def run_flask():
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), use_reloader=False)
 
 # ------------------------ Discord Bot Setup ------------------------- #
 intents = discord.Intents.default()
@@ -36,40 +36,10 @@ ffmpeg_options = {
 async def on_ready():
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
-# ------------------------- Music Controls UI ------------------------- #
-class MusicControls(discord.ui.View):
-    def __init__(self, vc):
-        super().__init__()
-        self.vc = vc
-
-    @discord.ui.button(label="▶️ Play", style=discord.ButtonStyle.green)
-    async def play_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.vc and self.vc.is_paused():
-            self.vc.resume()
-            await interaction.response.send_message("▶️ Resuming music!", ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ No paused music to resume.", ephemeral=True)
-
-    @discord.ui.button(label="⏸ Pause", style=discord.ButtonStyle.gray)
-    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.vc and self.vc.is_playing():
-            self.vc.pause()
-            await interaction.response.send_message("⏸ Music paused!", ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ No music playing to pause.", ephemeral=True)
-
-    @discord.ui.button(label="⏹ Stop", style=discord.ButtonStyle.red)
-    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.vc and self.vc.is_playing():
-            self.vc.stop()
-            await interaction.response.send_message("⏹ Music stopped!", ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ No music playing to stop.", ephemeral=True)
-
 # ------------------------- Play Music Command ------------------------- #
-@bot.command(name="play", help="Plays a track from a SoundCloud or YouTube URL")
+@bot.command(name="play", help="Plays a track from YouTube or SoundCloud URL")
 async def play(ctx, url: str):
-    if 'soundcloud.com' not in url and 'youtube.com' not in url and 'youtu.be' not in url:
+    if not url.startswith(("https://www.youtube.com", "https://youtu.be", "https://soundcloud.com")):
         await ctx.send("❌ Please provide a valid SoundCloud or YouTube URL.")
         return
 
@@ -99,9 +69,8 @@ async def play(ctx, url: str):
 
     # Play audio using FFmpeg
     try:
-        vc.play(discord.FFmpegPCMAudio(audio_url, **ffmpeg_options),
-                after=lambda e: print(f"Player error: {e}") if e else None)
-        await ctx.send(f"🎶 Now playing: {info['title']}", view=MusicControls(vc))
+        vc.play(discord.FFmpegPCMAudio(audio_url, **ffmpeg_options))
+        await ctx.send(f"🎶 Now playing: {info['title']}")
 
         # Wait for song to finish before disconnecting
         while vc.is_playing():
