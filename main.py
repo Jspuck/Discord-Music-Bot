@@ -36,9 +36,12 @@ ffmpeg_options = {
 async def on_ready():
     print(f'✅ Logged in as {bot.user.name} ({bot.user.id})')
 
-    # Sync slash commands
-    await bot.tree.sync()
-    print("✅ Slash commands synced!")
+    # 🔄 Sync commands globally for all servers
+    try:
+        await bot.tree.sync()
+        print("✅ Slash commands successfully synced globally!")
+    except Exception as e:
+        print(f"❌ Error syncing commands: {e}")
 
 # ------------------------- Music Controls UI ------------------------- #
 class MusicControls(discord.ui.View):
