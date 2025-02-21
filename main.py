@@ -16,6 +16,7 @@ def home():
 def run_flask():
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), use_reloader=False)
 
+
 # ------------------------ Discord Bot Setup ------------------------- #
 intents = discord.Intents.default()
 intents.messages = True
